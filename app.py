@@ -6,6 +6,8 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "ironcage_secret_2025"
+if not os.path.exists("static/img"):
+    os.makedirs("static/img")
 DB = "database.db"
 ADMIN_PASSWORD = "Mutsulkhanov67200"
 UPLOAD_FOLDER = os.path.join("static", "img")
@@ -343,6 +345,4 @@ def delete_result(id):
 
 # ── MAIN ──────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    init_db()
-    app.run(debug=True)
+init_db()
