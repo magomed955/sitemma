@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Classements — YFC MMA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>CLASSEMENTS <span>PAR CATÉGORIE</span></h1>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        {% for categorie, fighters in data.items() %}
+        {% if fighters %}
+        <div class="ranking-block">
+            <h2 class="ranking-title">{{ categorie }}</h2>
+            <table class="ranking-table">
+                <thead>
+                    <tr><th>#</th><th></th><th>Combattant</th><th>V</th><th>D</th><th>N</th><th>Points</th></tr>
+                </thead>
+                <tbody>
+                    {% for f in fighters %}
+                    <tr class="{{ 'champion' if loop.index == 1 }}">
+                        <td class="rank">{{ '👑' if loop.index == 1 else loop.index }}</td>
+                        <td>
+                            <a href="/fighter/{{ f.id }}">
+                                <img src="/static/img/{{ f.img }}"
+                                     onerror="this.src='/static/img/default.jpg'"
+                                     alt="{{ f.nom }}"
+                                     style="width:42px;height:42px;object-fit:cover;border-radius:50%;border:2px solid {{ 'var(--red)' if loop.index == 1 else 'var(--dark3)' }};">
+                            </a>
+                        </td>
+                        <td class="fighter-name-cell">
+                            <a href="/fighter/{{ f.id }}" style="color:inherit;">{{ f.nom }}</a>
+                        </td>
+                        <td class="win">{{ f.victoires }}</td>
+                        <td class="loss">{{ f.defaites }}</td>
+                        <td>{{ f.nuls }}</td>
+                        <td class="pts">{{ f.points }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
