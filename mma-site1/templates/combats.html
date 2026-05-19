@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Combats — YFC MMA{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1>PROCHAINS <span>COMBATS</span></h1>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="fights-list">
+            {% for fight in fights %}
+            <div class="fight-row">
+                <div class="fight-row-meta">
+                    <span class="fight-cat">{{ fight.categorie }}</span>
+                    <span class="fight-date">{{ fight.date }}</span>
+                    <span class="fight-lieu">📍 {{ fight.lieu }}</span>
+                </div>
+                <div class="fight-row-matchup">
+                    <div class="fighter-block">
+                        <div class="fighter-info">
+                            <div class="fighter-big-name">{{ fight.nom1 }}</div>
+                            <div class="fighter-record">{{ fight.v1 }}V — {{ fight.d1 }}D</div>
+                        </div>
+                        <img src="/static/img/{{ fight.img1 }}"
+                             onerror="this.src='/static/img/default.jpg'"
+                             alt="{{ fight.nom1 }}" class="fighter-photo">
+                    </div>
+                    <div class="vs-big">VS</div>
+                    <div class="fighter-block right">
+                        <img src="/static/img/{{ fight.img2 }}"
+                             onerror="this.src='/static/img/default.jpg'"
+                             alt="{{ fight.nom2 }}" class="fighter-photo">
+                        <div class="fighter-info right">
+                            <div class="fighter-big-name">{{ fight.nom2 }}</div>
+                            <div class="fighter-record">{{ fight.v2 }}V — {{ fight.d2 }}D</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty">Aucun combat annoncé pour le moment.</p>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

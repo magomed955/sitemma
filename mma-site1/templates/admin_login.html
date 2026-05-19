@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Admin Login — YFC MMA IBRATV{% endblock %}
+
+{% block content %}
+<section class="login-section">
+    <div class="login-box">
+        <div class="login-logo">YFC<span>MMA</span></div>
+        <h2>ACCÈS ADMIN</h2>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-error">{{ messages[0] }}</div>
+            {% endif %}
+        {% endwith %}
+        <form method="POST" action="/admin/login">
+            <div class="form-group">
+                <label>Mot de passe</label>
+                <input type="password" name="password" placeholder="••••••••" autofocus required>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%;text-align:center;">ENTRER</button>
+        </form>
+    </div>
+</section>
+{% endblock %}
