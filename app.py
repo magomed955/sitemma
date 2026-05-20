@@ -5,7 +5,6 @@ import os
 from functools import wraps
 from werkzeug.utils import secure_filename
 import uuid
-from dotenv import load_dotenv
 
 app = Flask(__name__)
 app.secret_key = "ironcage_secret_2025"
