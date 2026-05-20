@@ -354,6 +354,20 @@ def delete_result(id):
     flash("Résultat supprimé.")
     return redirect("/admin")
 
+LOCAL = os.environ.get("LOCAL", "1") == "1"
+if LOCAL:
+    import sqlite3
+
+    def get_db():
+        conn = sqlite3.connect("test.db")
+        conn.row_factory = sqlite3.Row
+        return conn
+else:
+    import psycopg2
+
+    def get_db():
+        return psycopg2.connect(os.environ["DATABASE_URL"], sslmode="require")
+
 # ── MAIN ──────────────────────────────────────────────────
 
 init_db()
