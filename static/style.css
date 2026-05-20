@@ -800,3 +800,33 @@ body::before {
         opacity: 0.6;
     }
 }
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+}
+
+.burger {
+    display: none;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+.mobile-menu {
+    display: none;
+    flex-direction: column;
+}
+
+@media (max-width: 768px) {
+    .nav-links {
+        display: none;
+    }
+
+    .burger {
+        display: block;
+    }
+
+    .mobile-menu.active {
+        display: flex;
+    }
+}
