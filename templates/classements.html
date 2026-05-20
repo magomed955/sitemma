@@ -23,10 +23,9 @@
                     <tr class="{{ 'champion' if loop.index == 1 }}">
                         <td class="rank">{{ '👑' if loop.index == 1 else loop.index }}</td>
                         <td>
-                            <img src="/static/img/{{ f.img }}"
-                                onerror="this.src='/static/img/default.jpg'"
-                                alt="{{ f.nom }}"
-                                style="width:42px;height:42px;object-fit:cover;border-radius:50%;border:2px solid {{ 'var(--red)' if loop.index == 1 else 'var(--dark3)' }};">
+                            <a> href="/fighter/{{ f.id }}">
+                                <img src="/static/img/{{ f.img }}"
+                            </a>
                         </td>
                         <td class="fighter-name-cell">
                             <a href="/fighter/{{ f.id }}" style="color:inherit;">{{ f.nom }}</a>
