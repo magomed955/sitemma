@@ -23,8 +23,9 @@
                     <tr class="{{ 'champion' if loop.index == 1 }}">
                         <td class="rank">{{ '👑' if loop.index == 1 else loop.index }}</td>
                         <td>
-                            <a> href="/fighter/{{ f.id }}">
+                            <a href="/fighter/{{ f.id }}">
                                 <img src="/static/img/{{ f.img }}"
+                                        alt="{{ f.nom }}">
                             </a>
                         </td>
                         <td class="fighter-name-cell">
