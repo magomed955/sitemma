@@ -4,6 +4,7 @@ import psycopg2.extras
 import os
 from functools import wraps
 from werkzeug.utils import secure_filename
+import uuid
 
 app = Flask(__name__)
 app.secret_key = "ironcage_secret_2025"
@@ -206,7 +207,9 @@ def add_fighter():
         file = request.files["img"]
         if file and file.filename and allowed_file(file.filename):
             img_filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], img_filename))
+            unique_name = str(uuid.uuid4()) + "_" + img_filename
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_name))
+            img_filename = unique_name
 
     conn = get_db()
     c = conn.cursor()
@@ -235,7 +238,9 @@ def edit_fighter(id):
         file = request.files["img"]
         if file and file.filename and allowed_file(file.filename):
             img_filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config["UPLOAD_FOLDER"], img_filename))
+            unique_name = str(uuid.uuid4()) + "_" + img_filename
+            file.save(os.path.join(app.config["UPLOAD_FOLDER"], unique_name))
+            img_filename = unique_name
 
     c.execute(
         "UPDATE fighters SET nom=%s, categorie=%s, victoires=%s, defaites=%s, nuls=%s, points=%s, img=%s WHERE id=%s",
