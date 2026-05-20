@@ -1,39 +1,42 @@
 from flask import Flask, render_template, request, redirect, session, flash
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import os
 from functools import wraps
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "ironcage_secret_2025"
+
 @app.after_request
 def no_cache(response):
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
     return response
+
 if not os.path.exists("static/img"):
     os.makedirs("static/img")
-DB = "database.db"
-ADMIN_PASSWORD = "Mutsulkhanov67200"
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Mutsulkhanov67200")
 UPLOAD_FOLDER = os.path.join("static", "img")
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
-
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_db():
-    conn = sqlite3.connect(DB)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 def init_db():
     conn = get_db()
     c = conn.cursor()
+
     c.execute('''CREATE TABLE IF NOT EXISTS fighters (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         nom TEXT NOT NULL,
         categorie TEXT NOT NULL,
         victoires INTEGER DEFAULT 0,
@@ -42,16 +45,18 @@ def init_db():
         points INTEGER DEFAULT 0,
         img TEXT DEFAULT 'default.jpg'
     )''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS fights (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         fighter1_id INTEGER,
         fighter2_id INTEGER,
         date TEXT,
         lieu TEXT,
         categorie TEXT
     )''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS results (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         fight_id INTEGER,
         gagnant_id INTEGER,
         methode TEXT,
@@ -59,40 +64,6 @@ def init_db():
         nom2 TEXT,
         date TEXT
     )''')
-    # Ajouter colonne results si elle n'existe pas (migration)
-    try:
-        c.execute("ALTER TABLE results ADD COLUMN nom1 TEXT")
-        c.execute("ALTER TABLE results ADD COLUMN nom2 TEXT")
-        c.execute("ALTER TABLE results ADD COLUMN date TEXT")
-    except:
-        pass
-
-    c.execute("SELECT COUNT(*) FROM fighters")
-    if c.fetchone()[0] == 0:
-        fighters = [
-            ("Bakhalaev", "Poids Lourd", 10, 1, 0, 1100, "bakhalaev.jpg"),
-            ("Marc Dupont", "Poids Léger", 9, 4, 1, 950, "default.jpg"),
-            ("Kevin Torres", "Poids Léger", 7, 3, 0, 800, "default.jpg"),
-            ("Julien Bernard", "Poids Welter", 15, 1, 0, 1500, "default.jpg"),
-            ("Ahmed Rais", "Poids Welter", 11, 3, 0, 1100, "default.jpg"),
-            ("Thomas Klein", "Poids Welter", 8, 5, 0, 780, "default.jpg"),
-            ("Ryo Tanaka", "Poids Moyen", 10, 2, 1, 1050, "default.jpg"),
-            ("Igor Petrov", "Poids Moyen", 8, 4, 0, 870, "default.jpg"),
-            ("Luis Herrera", "Poids Lourd", 18, 3, 0, 1800, "default.jpg"),
-            ("Bjorn Hansen", "Poids Lourd", 14, 5, 1, 1350, "default.jpg"),
-        ]
-        c.executemany("INSERT INTO fighters (nom, categorie, victoires, defaites, nuls, points, img) VALUES (?,?,?,?,?,?,?)", fighters)
-
-        def get_id(name):
-            row = c.execute("SELECT id FROM fighters WHERE nom=?", (name,)).fetchone()
-            return row["id"] if row else None
-
-        fights = [
-            (get_id("Marc Dupont"), get_id("Julien Bernard"), "2025-06-14", "Paris Arena", "Poids Welter"),
-            (get_id("Ahmed Rais"), get_id("Thomas Klein"), "2025-06-14", "Paris Arena", "Poids Welter"),
-            (get_id("Ryo Tanaka"), get_id("Igor Petrov"), "2025-07-05", "Lyon Dome", "Poids Moyen"),
-        ]
-        c.executemany("INSERT INTO fights (fighter1_id, fighter2_id, date, lieu, categorie) VALUES (?,?,?,?,?)", fights)
 
     conn.commit()
     conn.close()
@@ -107,25 +78,37 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def fetchall_dict(cursor):
+    cols = [desc[0] for desc in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+def fetchone_dict(cursor):
+    cols = [desc[0] for desc in cursor.description]
+    row = cursor.fetchone()
+    return dict(zip(cols, row)) if row else None
+
 # ── ROUTES PUBLIQUES ──────────────────────────────────────
 
 @app.route("/")
 def index():
     conn = get_db()
-    fights = conn.execute("""
+    c = conn.cursor()
+    c.execute("""
         SELECT f.*, f1.nom as nom1, f2.nom as nom2
         FROM fights f
         JOIN fighters f1 ON f.fighter1_id = f1.id
         JOIN fighters f2 ON f.fighter2_id = f2.id
         ORDER BY f.date ASC LIMIT 3
-    """).fetchall()
+    """)
+    fights = fetchall_dict(c)
     conn.close()
     return render_template("index.html", fights=fights)
 
 @app.route("/combats")
 def combats():
     conn = get_db()
-    fights = conn.execute("""
+    c = conn.cursor()
+    c.execute("""
         SELECT f.*,
                f1.nom as nom1, f2.nom as nom2,
                f1.victoires as v1, f1.defaites as d1,
@@ -135,49 +118,34 @@ def combats():
         JOIN fighters f1 ON f.fighter1_id = f1.id
         JOIN fighters f2 ON f.fighter2_id = f2.id
         ORDER BY f.date ASC
-    """).fetchall()
+    """)
+    fights = fetchall_dict(c)
     conn.close()
     return render_template("combats.html", fights=fights)
 
 @app.route("/classements")
 def classements():
     conn = get_db()
+    c = conn.cursor()
     categories = ["Poids Léger", "Poids Welter", "Poids Moyen", "Poids Lourd"]
     data = {}
     for cat in categories:
-        data[cat] = conn.execute(
-            "SELECT * FROM fighters WHERE categorie=? ORDER BY points DESC", (cat,)
-        ).fetchall()
+        c.execute("SELECT * FROM fighters WHERE categorie=%s ORDER BY points DESC", (cat,))
+        data[cat] = fetchall_dict(c)
     conn.close()
     return render_template("classements.html", data=data)
-
-@app.route("/fighter/<int:id>")
-def fighter_profile(id):
-    conn = get_db()
-    fighter = conn.execute("SELECT * FROM fighters WHERE id=?", (id,)).fetchone()
-    history = conn.execute("""
-        SELECT r.*, f1.nom as nom1, f2.nom as nom2, f3.nom as gagnant_nom
-        FROM results r
-        JOIN fighters f1 ON f1.id = r.gagnant_id
-        LEFT JOIN fighters f2 ON f2.id != r.gagnant_id
-        JOIN fighters f3 ON f3.id = r.gagnant_id
-        WHERE r.nom1 = ? OR r.nom2 = ?
-        ORDER BY r.id DESC
-    """, (fighter["nom"], fighter["nom"])).fetchall() if fighter else []
-    conn.close()
-    if not fighter:
-        return redirect("/classements")
-    return render_template("fighter.html", fighter=fighter, history=history)
 
 @app.route("/resultats")
 def resultats():
     conn = get_db()
-    results = conn.execute("""
+    c = conn.cursor()
+    c.execute("""
         SELECT r.*, fi.nom as gagnant_nom, fi.img as gagnant_img
         FROM results r
         JOIN fighters fi ON r.gagnant_id = fi.id
         ORDER BY r.id DESC
-    """).fetchall()
+    """)
+    results = fetchall_dict(c)
     conn.close()
     return render_template("resultats.html", results=results)
 
@@ -203,20 +171,28 @@ def admin_logout():
 @admin_required
 def admin():
     conn = get_db()
-    fighters = conn.execute("SELECT * FROM fighters ORDER BY categorie, points DESC").fetchall()
-    fights = conn.execute("""
+    c = conn.cursor()
+
+    c.execute("SELECT * FROM fighters ORDER BY categorie, points DESC")
+    fighters = fetchall_dict(c)
+
+    c.execute("""
         SELECT f.*, f1.nom as nom1, f2.nom as nom2
         FROM fights f
         JOIN fighters f1 ON f.fighter1_id = f1.id
         JOIN fighters f2 ON f.fighter2_id = f2.id
         ORDER BY f.date ASC
-    """).fetchall()
-    results = conn.execute("""
+    """)
+    fights = fetchall_dict(c)
+
+    c.execute("""
         SELECT r.*, fi.nom as gagnant_nom
         FROM results r
         JOIN fighters fi ON r.gagnant_id = fi.id
         ORDER BY r.id DESC
-    """).fetchall()
+    """)
+    results = fetchall_dict(c)
+
     conn.close()
     return render_template("admin.html", fighters=fighters, fights=fights, results=results)
 
@@ -233,8 +209,9 @@ def add_fighter():
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], img_filename))
 
     conn = get_db()
-    conn.execute(
-        "INSERT INTO fighters (nom, categorie, victoires, defaites, nuls, points, img) VALUES (?,?,?,?,?,?,?)",
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO fighters (nom, categorie, victoires, defaites, nuls, points, img) VALUES (%s,%s,%s,%s,%s,%s,%s)",
         (request.form["nom"], request.form["categorie"],
          int(request.form.get("victoires", 0)), int(request.form.get("defaites", 0)),
          int(request.form.get("nuls", 0)), int(request.form.get("points", 0)),
@@ -249,7 +226,9 @@ def add_fighter():
 @admin_required
 def edit_fighter(id):
     conn = get_db()
-    current = conn.execute("SELECT img FROM fighters WHERE id=?", (id,)).fetchone()
+    c = conn.cursor()
+    c.execute("SELECT img FROM fighters WHERE id=%s", (id,))
+    current = fetchone_dict(c)
     img_filename = current["img"] if current else "default.jpg"
 
     if "img" in request.files:
@@ -258,8 +237,8 @@ def edit_fighter(id):
             img_filename = secure_filename(file.filename)
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], img_filename))
 
-    conn.execute(
-        "UPDATE fighters SET nom=?, categorie=?, victoires=?, defaites=?, nuls=?, points=?, img=? WHERE id=?",
+    c.execute(
+        "UPDATE fighters SET nom=%s, categorie=%s, victoires=%s, defaites=%s, nuls=%s, points=%s, img=%s WHERE id=%s",
         (request.form["nom"], request.form["categorie"],
          int(request.form.get("victoires", 0)), int(request.form.get("defaites", 0)),
          int(request.form.get("nuls", 0)), int(request.form.get("points", 0)),
@@ -274,7 +253,8 @@ def edit_fighter(id):
 @admin_required
 def delete_fighter(id):
     conn = get_db()
-    conn.execute("DELETE FROM fighters WHERE id=?", (id,))
+    c = conn.cursor()
+    c.execute("DELETE FROM fighters WHERE id=%s", (id,))
     conn.commit()
     conn.close()
     flash("Combattant supprimé.")
@@ -286,8 +266,9 @@ def delete_fighter(id):
 @admin_required
 def add_fight():
     conn = get_db()
-    conn.execute(
-        "INSERT INTO fights (fighter1_id, fighter2_id, date, lieu, categorie) VALUES (?,?,?,?,?)",
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO fights (fighter1_id, fighter2_id, date, lieu, categorie) VALUES (%s,%s,%s,%s,%s)",
         (int(request.form["fighter1_id"]), int(request.form["fighter2_id"]),
          request.form["date"], request.form["lieu"], request.form["categorie"])
     )
@@ -300,7 +281,8 @@ def add_fight():
 @admin_required
 def delete_fight(id):
     conn = get_db()
-    conn.execute("DELETE FROM fights WHERE id=?", (id,))
+    c = conn.cursor()
+    c.execute("DELETE FROM fights WHERE id=%s", (id,))
     conn.commit()
     conn.close()
     flash("Combat supprimé.")
@@ -316,21 +298,38 @@ def add_result():
     methode    = request.form["methode"]
 
     conn = get_db()
-    fight = conn.execute("SELECT * FROM fights WHERE id=?", (fight_id,)).fetchone()
+    c = conn.cursor()
+    c.execute("SELECT * FROM fights WHERE id=%s", (fight_id,))
+    fight = fetchone_dict(c)
 
     if fight:
         perdant_id = fight["fighter2_id"] if gagnant_id == fight["fighter1_id"] else fight["fighter1_id"]
-        f1 = conn.execute("SELECT nom FROM fighters WHERE id=?", (fight["fighter1_id"],)).fetchone()
-        f2 = conn.execute("SELECT nom FROM fighters WHERE id=?", (fight["fighter2_id"],)).fetchone()
 
-        conn.execute(
-            "INSERT INTO results (fight_id, gagnant_id, methode, nom1, nom2, date) VALUES (?,?,?,?,?,?)",
+        c.execute("SELECT nom FROM fighters WHERE id=%s", (fight["fighter1_id"],))
+        f1 = fetchone_dict(c)
+        c.execute("SELECT nom FROM fighters WHERE id=%s", (fight["fighter2_id"],))
+        f2 = fetchone_dict(c)
+
+        c.execute(
+            "INSERT INTO results (fight_id, gagnant_id, methode, nom1, nom2, date) VALUES (%s,%s,%s,%s,%s,%s)",
             (fight_id, gagnant_id, methode,
              f1["nom"] if f1 else "", f2["nom"] if f2 else "", fight["date"])
         )
-        conn.execute("UPDATE fighters SET victoires = victoires + 1, points = points + 100 WHERE id=?", (gagnant_id,))
-        conn.execute("UPDATE fighters SET defaites = defaites + 1 WHERE id=?", (perdant_id,))
-        conn.execute("DELETE FROM fights WHERE id=?", (fight_id,))
+
+        points_map = {
+            "KO":                   250,
+            "TKO":                  220,
+            "Soumission":           220,
+            "Décision unanime":     200,
+            "Décision majoritaire": 190,
+            "Décision partagée":    180,
+            "No Contest":           0,
+        }
+        points_gagnes = points_map.get(methode, 200)
+
+        c.execute("UPDATE fighters SET victoires = victoires + 1, points = points + %s WHERE id=%s", (points_gagnes, gagnant_id))
+        c.execute("UPDATE fighters SET defaites = defaites + 1 WHERE id=%s", (perdant_id,))
+        c.execute("DELETE FROM fights WHERE id=%s", (fight_id,))
         conn.commit()
         flash("Résultat enregistré.")
     else:
@@ -343,7 +342,8 @@ def add_result():
 @admin_required
 def delete_result(id):
     conn = get_db()
-    conn.execute("DELETE FROM results WHERE id=?", (id,))
+    c = conn.cursor()
+    c.execute("DELETE FROM results WHERE id=%s", (id,))
     conn.commit()
     conn.close()
     flash("Résultat supprimé.")
@@ -352,3 +352,6 @@ def delete_result(id):
 # ── MAIN ──────────────────────────────────────────────────
 
 init_db()
+
+if __name__ == "__main__":
+    app.run(debug=True)
