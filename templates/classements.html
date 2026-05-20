@@ -25,7 +25,9 @@
                         <td>
                             <a href="/fighter/{{ f.id }}">
                                 <img src="/static/img/{{ f.img }}"
-                                        alt="{{ f.nom }}">
+                                     onerror="this.src='/static/img/default.jpg'"
+                                     alt="{{ f.nom }}"
+                                     style="width:42px;height:42px;object-fit:cover;border-radius:50%;border:2px solid {{ 'var(--red)' if loop.index == 1 else 'var(--dark3)' }};">
                             </a>
                         </td>
                         <td class="fighter-name-cell">
